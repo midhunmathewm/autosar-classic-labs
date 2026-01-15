@@ -5,7 +5,8 @@
 
 /* Task prototypes (AUTOSAR-style naming) */
 static void InitTask(void *arg);
-static void PeriodicTask_10ms(void *arg);
+static void HighPrioPeriodicTask_200ms(void *arg);
+static void LowPrioPeriodicTask_1000ms(void *arg);
 
 /**
  * @brief Starts the OS abstraction and creates configured tasks.
@@ -29,17 +30,26 @@ void StartOS(AppModeType mode)
         "InitTask",
         2048,
         NULL,
-        5,
+        9,
         NULL
     );
 
-    /* Periodic Task – medium priority */
+    /* Periodic Task – High priority */
     xTaskCreate(
-        PeriodicTask_10ms,
+        HighPrioPeriodicTask_200ms,
         "Cyclic10ms",
         2048,
         NULL,
-        3,
+        8,
+        NULL
+    );
+    /* Periodic Task – Low priority */
+    xTaskCreate(
+        LowPrioPeriodicTask_1000ms,
+        "Cyclic10ms",
+        2048,
+        NULL,
+        6,
         NULL
     );
 }
@@ -74,7 +84,7 @@ static void InitTask(void *arg)
 }
 
 /**
- * @brief Periodic cyclic task with 10 ms period.
+ * @brief Periodic cyclic task with 200 ms period.
  *
  * @param[in]  arg   Task argument (unused).
  * @param[out] None
@@ -84,7 +94,7 @@ static void InitTask(void *arg)
  * @note
  * Execution period is enforced using vTaskDelayUntil().
  */
-static void PeriodicTask_10ms(void *arg)
+static void HighPrioPeriodicTask_200ms(void *arg)
 {
     (void)arg;
 
@@ -92,11 +102,39 @@ static void PeriodicTask_10ms(void *arg)
 
     for (;;)
     {
-        printf("[CyclicTask] 10ms execution\n");
+        printf("High Prio 200ms Cyclic\n");
+ 
 
         /* Application logic here */
 
-        /* Alarm-driven activation (10 ms) */
-        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(10));
+        /* Alarm-driven activation (200 ms) */
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));
+    }
+}
+/**
+ * @brief Periodic cyclic task with 1000 ms period.
+ *
+ * @param[in]  arg   Task argument (unused).
+ * @param[out] None
+ *
+ * @return void
+ *
+ * @note
+ * Execution period is enforced using vTaskDelayUntil().
+ */
+static void LowPrioPeriodicTask_1000ms(void *arg)
+{
+    (void)arg;
+
+    TickType_t lastWakeTime = xTaskGetTickCount();
+
+    for (;;)
+    {
+       printf("Low Prio 1000ms Cyclic\n");
+
+        /* Application logic here */
+
+        /* Alarm-driven activation (1000 ms) */
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
