@@ -7,7 +7,8 @@
 static void InitTask(void *arg);
 static void HighPrioPeriodicTask_200ms(void *arg);
 static void LowPrioPeriodicTask_1000ms(void *arg);
-
+static void SamePrioTask_A(void *arg);
+static void SamePrioTask_B(void *arg);
 /**
  * @brief Starts the OS abstraction and creates configured tasks.
  *
@@ -50,6 +51,23 @@ void StartOS(AppModeType mode)
         2048,
         NULL,
         6,
+        NULL
+    );
+
+    xTaskCreate(
+        SamePrioTask_A,
+        "SameA",
+        2048,
+        NULL,
+        7,
+        NULL
+    );
+    xTaskCreate(
+        SamePrioTask_B,
+        "SameB",
+        2048,
+        NULL,
+        7,
         NULL
     );
 }
@@ -136,5 +154,64 @@ static void LowPrioPeriodicTask_1000ms(void *arg)
 
         /* Alarm-driven activation (1000 ms) */
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+    }
+}
+/**
+ * @brief Same-priority task A
+ *
+ * This task runs at the same priority as Task B. It periodically prints
+ * a message and voluntarily blocks for a short duration to allow the
+ * scheduler to switch to another READY task of the same priority.
+ *
+ * Scheduling behavior:
+ *  - Priority-based
+ *  - Cooperative (blocking-based)
+ *  - Time slicing enabled
+ *
+ * @param[in] arg  Unused task parameter (required by FreeRTOS API)
+ */
+static void SamePrioTask_A(void *arg)
+{
+    for (;;)
+    {
+        printf("[%lu ms] [Task A] RUNNING\n",
+       xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+         /*
+         * Voluntarily block the task for a short duration.
+         * This causes the task to move from RUNNING → BLOCKED.
+         * When the delay expires, the task becomes READY again,
+         * allowing round-robin scheduling with other same-priority tasks.
+         */
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+/**
+ * @brief Same-priority task B
+ *
+ * This task runs at the same priority as Task B. It periodically prints
+ * a message and voluntarily blocks for a short duration to allow the
+ * scheduler to switch to another READY task of the same priority.
+ *
+ * Scheduling behavior:
+ *  - Priority-based
+ *  - Cooperative (blocking-based)
+ *  - Time slicing enabled
+ *
+ * @param[in] arg  Unused task parameter (required by FreeRTOS API)
+ */
+static void SamePrioTask_B(void *arg)
+{
+    for (;;)
+    {
+        printf("[Task B] RUNNING\n");
+
+         /*
+         * Voluntarily block the task for a short duration.
+         * This causes the task to move from RUNNING → BLOCKED.
+         * When the delay expires, the task becomes READY again,
+         * allowing round-robin scheduling with other same-priority tasks.
+         */
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
