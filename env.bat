@@ -1,18 +1,26 @@
-REM ESP-IDF root
-set IDF_PATH=D:\01_EU\Tools\esp-idf
+@echo off
 
-REM Load ESP-IDF environment
+REM === ESP-IDF root (FIXED) ===
+set IDF_PATH=D:\01_EU\Tools\Espressif\frameworks\esp-idf-v5.5.2
+
+REM === Load ESP-IDF environment ===
 call "%IDF_PATH%\export.bat"
+if errorlevel 1 exit /b 1
 
-REM Go to the ESP-IDF project root explicitly
+REM === Go to project root ===
 cd /d "%~dp0\01-autosar-os-conformance"
 
-REM Safety check (optional but recommended)
+REM === Safety check ===
 if not exist CMakeLists.txt (
     echo ERROR: CMakeLists.txt not found in project directory
     exit /b 1
 )
 
-REM Build + flash + monitor
-idf.py build flash monitor
+REM === Build + flash + monitor ===
+idf.py build 
+
+if errorlevel 1 exit /b 1
+
+idf.py flash 
+idf.py monitor
 cmd /k idf.py monitor

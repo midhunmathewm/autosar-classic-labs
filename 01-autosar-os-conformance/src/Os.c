@@ -54,7 +54,7 @@ void StartOS(AppModeType mode)
         NULL
     );
 
-    xTaskCreate(
+   /*  xTaskCreate(
         SamePrioTask_A,
         "SameA",
         2048,
@@ -69,7 +69,7 @@ void StartOS(AppModeType mode)
         NULL,
         7,
         NULL
-    );
+    ); */
 }
 
 /**
@@ -215,3 +215,4 @@ static void SamePrioTask_B(void *arg)
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
+

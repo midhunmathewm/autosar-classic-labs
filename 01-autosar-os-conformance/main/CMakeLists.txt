@@ -15,6 +15,7 @@ idf_component_register(
     SRCS
         "app_entry.c"
         "../src/Os.c"
+        "../src/Os_Counter_Cfg.c"
     INCLUDE_DIRS
         "../inc"
 )
