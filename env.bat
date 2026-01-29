@@ -21,6 +21,9 @@ idf.py build
 
 if errorlevel 1 exit /b 1
 
+set ESPPORT=COM3
+set ESPBAUD=115200
+
 idf.py flash 
 idf.py monitor
 cmd /k idf.py monitor

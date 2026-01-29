@@ -1,218 +1,243 @@
 #include "Os.h"
+#include "OsTimer_Cfg.h"
+#include "OsCounter_Cfg.h"
+#include "OsAlarm_Cfg.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
 
-/* Task prototypes (AUTOSAR-style naming) */
-static void InitTask(void *arg);
-static void HighPrioPeriodicTask_200ms(void *arg);
-static void LowPrioPeriodicTask_1000ms(void *arg);
-static void SamePrioTask_A(void *arg);
-static void SamePrioTask_B(void *arg);
 /**
- * @brief Starts the OS abstraction and creates configured tasks.
+ * @file    Os.c
+ * @brief   AUTOSAR OS Implementation for ESP32
+ */
+
+/* Task prototypes */
+static void Os_InitTask(void *arg);
+static void Os_HighPrioPeriodicTask_200ms(void *arg);
+static void Os_LowPrioPeriodicTask_1000ms(void *arg);
+
+/* Timer callback */
+static void Os_TimerCallback(void);
+
+/**
+ * @brief Starts the OS abstraction layer
  *
- * @param[in]  mode  Application startup mode.
- * @param[out] None
+ * @param[in]  mode  Application startup mode
  *
  * @return void
  *
  * @note
- * On ESP-IDF, this function only creates tasks.
- * The FreeRTOS scheduler is already running.
+ * Initialization sequence:
+ * 1. Initialize counters
+ * 2. Initialize alarms
+ * 3. Initialize and start timer
+ * 4. Create application tasks
  */
 void StartOS(AppModeType mode)
 {
     (void)mode;
 
-    /* Init Task – highest priority */
+    printf("\n");
+    printf("========================================\n");
+    printf("  AUTOSAR OS Layer for ESP32\n");
+    printf("========================================\n");
+    printf("[StartOS] Initializing BSW layer...\n");
+
+    /* Step 1: Initialize counter subsystem */
+    OsCounter_Init();
+    
+    /* Step 2: Initialize alarm subsystem */
+    OsAlarm_Init();
+    
+    /* Step 3: Initialize timer */
+    OsTimer_Init();
+    
+    /* Step 4: Register timer callback */
+    OsTimer_RegisterCallback(Os_TimerCallback);
+    
+    /* Step 5: Start timer */
+    OsTimer_Start();
+
+    printf("[StartOS] Creating application tasks...\n");
+
+    /* Create Init Task - highest priority */
     xTaskCreate(
-        InitTask,
+        Os_InitTask,
         "InitTask",
         2048,
         NULL,
-        9,
+        9,  /* Highest priority */
         NULL
     );
 
-    /* Periodic Task – High priority */
+    /* Create High Priority Periodic Task (200ms cycle) */
     xTaskCreate(
-        HighPrioPeriodicTask_200ms,
-        "Cyclic10ms",
+        Os_HighPrioPeriodicTask_200ms,
+        "HighPrio200ms",
         2048,
         NULL,
         8,
         NULL
     );
-    /* Periodic Task – Low priority */
+
+    /* Create Low Priority Periodic Task (1000ms cycle) */
     xTaskCreate(
-        LowPrioPeriodicTask_1000ms,
-        "Cyclic10ms",
+        Os_LowPrioPeriodicTask_1000ms,
+        "LowPrio1000ms",
         2048,
         NULL,
         6,
         NULL
     );
 
-   /*  xTaskCreate(
-        SamePrioTask_A,
-        "SameA",
-        2048,
-        NULL,
-        7,
-        NULL
-    );
-    xTaskCreate(
-        SamePrioTask_B,
-        "SameB",
-        2048,
-        NULL,
-        7,
-        NULL
-    ); */
+    printf("[StartOS] OS initialization complete\n");
+    printf("========================================\n\n");
 }
 
 /**
- * @brief One-shot initialization task.
+ * @brief Timer callback - called every 1ms from ISR
+ * 
+ * @note This is called from ISR context by the hardware timer
+ */
+static void Os_TimerCallback(void)
+{
+    /* Increment system counter - this will trigger alarm processing */
+    OsCounter_Increment(OsCounter_System);
+}
+
+/**
+ * @brief One-shot initialization task
  *
- * @param[in]  arg   Task argument (unused).
- * @param[out] None
+ * @param[in]  arg   Task argument (unused)
  *
  * @return void
  *
  * @note
  * Executes system initialization and terminates itself.
+ * AUTOSAR equivalent: Startup Hook + Init Task
  */
-static void InitTask(void *arg)
+static void Os_InitTask(void *arg)
 {
     (void)arg;
 
     printf("[InitTask] System initialization start\n");
 
-    /* Init logic here:
-       - drivers
-       - state manager
-       - safety checks
-    */
+    /* Wait for other tasks to be created */
+    vTaskDelay(pdMS_TO_TICKS(100));
 
-    printf("[InitTask] Initialization complete\n");
+    /* 
+     * Application-specific initialization
+     * - Initialize drivers
+     * - Initialize state machines
+     * - Perform safety checks
+     * - Configure alarms (if needed)
+     */
+
+    uint32_t systemTick = OsCounter_GetValue(OsCounter_System);
+    printf("[InitTask] Initialization complete (system tick: %lu)\n", systemTick);
+    printf("[InitTask] Application tasks starting...\n\n");
 
     /* AUTOSAR TerminateTask() equivalent */
     vTaskDelete(NULL);
 }
 
 /**
- * @brief Periodic cyclic task with 200 ms period.
+ * @brief High priority periodic task with 200ms period
  *
- * @param[in]  arg   Task argument (unused).
- * @param[out] None
+ * @param[in]  arg   Task argument (unused)
  *
  * @return void
  *
  * @note
  * Execution period is enforced using vTaskDelayUntil().
+ * AUTOSAR equivalent: Cyclic task with 200ms alarm
  */
-static void HighPrioPeriodicTask_200ms(void *arg)
+static void Os_HighPrioPeriodicTask_200ms(void *arg)
 {
     (void)arg;
 
     TickType_t lastWakeTime = xTaskGetTickCount();
+    uint32_t executionCount = 0;
 
     for (;;)
     {
-        printf("High Prio 200ms Cyclic\n");
- 
+        uint32_t systemTick = OsCounter_GetValue(OsCounter_System);
+        uint32_t freeRtosTick = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        
+        printf("[%lu ms / Tick %lu] HighPrio Task #%lu\n",
+               freeRtosTick,
+               systemTick,
+               ++executionCount);
 
-        /* Application logic here */
+        /* 
+         * Application logic here:
+         * - Fast control loops
+         * - Sensor reading
+         * - Real-time processing
+         */
 
-        /* Alarm-driven activation (200 ms) */
+        /* Wait for next period (200 ms) */
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));
     }
 }
+
 /**
- * @brief Periodic cyclic task with 1000 ms period.
+ * @brief Low priority periodic task with 1000ms period
  *
- * @param[in]  arg   Task argument (unused).
- * @param[out] None
+ * @param[in]  arg   Task argument (unused)
  *
  * @return void
  *
  * @note
  * Execution period is enforced using vTaskDelayUntil().
+ * AUTOSAR equivalent: Cyclic task with 1000ms alarm
  */
-static void LowPrioPeriodicTask_1000ms(void *arg)
+static void Os_LowPrioPeriodicTask_1000ms(void *arg)
 {
     (void)arg;
 
     TickType_t lastWakeTime = xTaskGetTickCount();
+    uint32_t executionCount = 0;
 
     for (;;)
     {
-       printf("Low Prio 1000ms Cyclic\n");
+        uint32_t systemTick = OsCounter_GetValue(OsCounter_System);
+        uint32_t freeRtosTick = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        
+        printf("[%lu ms / Tick %lu] LowPrio Task #%lu\n",
+               freeRtosTick,
+               systemTick,
+               ++executionCount);
 
-        /* Application logic here */
+        /* 
+         * Application logic here:
+         * - Diagnostics
+         * - Logging
+         * - Housekeeping
+         * - Non-critical monitoring
+         */
 
-        /* Alarm-driven activation (1000 ms) */
+        /* Wait for next period (1000 ms) */
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
     }
 }
-/**
- * @brief Same-priority task A
- *
- * This task runs at the same priority as Task B. It periodically prints
- * a message and voluntarily blocks for a short duration to allow the
- * scheduler to switch to another READY task of the same priority.
- *
- * Scheduling behavior:
- *  - Priority-based
- *  - Cooperative (blocking-based)
- *  - Time slicing enabled
- *
- * @param[in] arg  Unused task parameter (required by FreeRTOS API)
- */
-static void SamePrioTask_A(void *arg)
-{
-    for (;;)
-    {
-        printf("[%lu ms] [Task A] RUNNING\n",
-       xTaskGetTickCount() * portTICK_PERIOD_MS);
 
-         /*
-         * Voluntarily block the task for a short duration.
-         * This causes the task to move from RUNNING → BLOCKED.
-         * When the delay expires, the task becomes READY again,
-         * allowing round-robin scheduling with other same-priority tasks.
-         */
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-}
 /**
- * @brief Same-priority task B
- *
- * This task runs at the same priority as Task B. It periodically prints
- * a message and voluntarily blocks for a short duration to allow the
- * scheduler to switch to another READY task of the same priority.
- *
- * Scheduling behavior:
- *  - Priority-based
- *  - Cooperative (blocking-based)
- *  - Time slicing enabled
- *
- * @param[in] arg  Unused task parameter (required by FreeRTOS API)
+ * @brief Get OS tick count (system counter value)
+ * 
+ * @return Current system tick count (1 tick = 1 ms)
  */
-static void SamePrioTask_B(void *arg)
+uint32_t Os_GetTickCount(void)
 {
-    for (;;)
-    {
-        printf("[Task B] RUNNING\n");
-
-         /*
-         * Voluntarily block the task for a short duration.
-         * This causes the task to move from RUNNING → BLOCKED.
-         * When the delay expires, the task becomes READY again,
-         * allowing round-robin scheduling with other same-priority tasks.
-         */
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
+    return OsCounter_GetValue(OsCounter_System);
 }
 
+/**
+ * @brief Delay execution for specified ticks
+ * 
+ * @param[in] ticks Number of ticks to delay (1 tick = 1 ms)
+ */
+void Os_Delay(uint32_t ticks)
+{
+    vTaskDelay(pdMS_TO_TICKS(ticks));
+}
