@@ -18,6 +18,7 @@ idf_component_register(
         "../src/OsTimer_Cfg.c"
         "../src/OsAlarm_Cfg.c"
         "../src/OsCounter_Cfg.c"
+        "../src/OsEvent_Cfg.c"
     INCLUDE_DIRS
         "../inc"
 )

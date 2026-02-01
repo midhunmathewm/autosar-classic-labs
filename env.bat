@@ -17,6 +17,7 @@ if not exist CMakeLists.txt (
 )
 
 REM === Build + flash + monitor ===
+idf.py fullclean
 idf.py build 
 
 if errorlevel 1 exit /b 1
